@@ -8,7 +8,7 @@ INCLUDE Irvine32.inc
 
 .code
 main PROC
-
+;testtesttest
     invoke ExitProcess,0
 main ENDP
 END main
