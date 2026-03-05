@@ -4,10 +4,19 @@ INCLUDE Irvine32.inc
 word1 BYTE "apple",0
 word2 BYTE "grapes",0
 word3 BYTE "peach",0
+word4 BYTE "banana",0
+word5 BYTE "orange",0
+;word6 BYTE "strawberry",0
+;word7 BYTE "watermelon",0
+;word8 BYTE "kiwi",0
+;word9 BYTE "mango",0
+;word10 BYTE "blueberry",0
 
-test_words DWORD OFFSET word1, OFFSET word2, OFFSET word3
-word_count = LENGTHOF test_words
-word_counter DWORD 0 ; Counter to track which word in use
+
+test_words DWORD OFFSET word1, OFFSET word2, OFFSET word3, OFFSET word4, OFFSET word5;,
+                 ;OFFSET word6, OFFSET word7, OFFSET word8, OFFSET word9, OFFSET word10
+WORD_COUNT = LENGTHOF test_words ; Number of words in the list
+curr_word DWORD 0 ; Counter to track which word in use
 curr_index DWORD 0    ; Index for the current letter
 
 .code
@@ -21,19 +30,9 @@ game_loop:
   call Gotoxy
 
   ; Calculate the offset for the current word
-  mov eax, word_counter
+  mov eax, curr_word
   mov esi, test_words[eax*4]
   
-  ;mov ecx, 0      ; Reset index for word length
-  ;next_char:
-  ;  mov al,[test_words + eax]
-  ;  cmp al, 0
-  ;  jz continue_code
-  ;  inc eax
-  ;  inc ecx
-  ;  loop next_char
- 
-  continue_code:
   ; Print remaining letters
   mov edx, esi
   mov eax, curr_index
@@ -48,31 +47,37 @@ game_loop:
   mov eax, curr_index
   mov al, [esi + eax]
 
+  cmp bl, al
+  jne incorrect_letter
+
   ; Correct letter
-  .IF bl == al
-    inc curr_index
+  inc curr_index
+  mov eax, curr_index
+  mov al, [esi + eax]
+  
+  cmp al, 0   ; check for null character
+  jne continue_loop
 
-    mov eax, curr_index
-    mov al, [esi + eax]
-    .IF al == 0
-      ; Move to next word
-      inc word_counter
-      mov curr_index, 0
-      call Clrscr
-      call WriteString
-      call Crlf
-      
-      .IF word_counter == word_count
-        ; All words completed, reset
-        invoke ExitProcess,0
-      .ENDIF
-    .ENDIF
-  .ELSE
-     ; Incorrect letter, reset current word
-  .ENDIF
-
+  ; Going to next word once one is completed
+  inc curr_word
+  mov curr_index, 0
   call Clrscr
-  jmp game_loop
+  call WriteString
+  call Crlf
+  
+  ; Check if at the end of word list
+  cmp curr_word, WORD_COUNT
+  je game_over
+   
+  incorrect_letter:
+    jmp game_loop
+
+  continue_loop:
+    call Clrscr
+    jmp game_loop
+
+  game_over:
+    invoke ExitProcess,0
 
 main ENDP
 END main
