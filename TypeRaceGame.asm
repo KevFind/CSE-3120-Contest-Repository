@@ -19,11 +19,12 @@ WORD_COUNT = LENGTHOF test_words    ; Number of words in the list
 curr_word DWORD 0                   ; Counter to track which word in use
 curr_index DWORD 0                  ; Index for the current letter
 
-spaces80 BYTE 80 DUP(" "),0 
+blank_line BYTE 120 DUP(" "),0 
 
-row_pos DWORD 0
+row_pos DWORD 0     ; Row position of the current falling word, starts at 0 and increases as the word falls
+fall_timer DWORD 0  ; Timer to control the speed of the falling words
 
-gameOverMsg BYTE "GAME OVER",0
+gameOverMsg BYTE "GAME OVER",0   ; Message to display when the game is over
 ;exitMsg BYTE "Press any key to exit...",0
 
 .code
@@ -31,9 +32,11 @@ main PROC
   call Clrscr
 
 game_loop:
+  call Clrscr
   call DrawDeathLine   ; Draw the death line at the bottom of the screen
-  ; Move cursor to top left corner
-  mov dh, 0        ; row
+
+  ; Draw word on the screen
+  mov dh, BYTE PTR row_pos       ; row
   mov dl, 0        ; col
   call Gotoxy
 
@@ -47,16 +50,19 @@ game_loop:
   add edx, eax
   call WriteString
 
-  ; Read a key
-  call ReadChar
-  mov bl, al        ; store pressed key
 
+  ; Read a key
+  call ReadKey
+  jz continue_loop   ; if no key is pressed, continue the loop
+  
+  mov bl, al        ; store pressed key
+    
   ; Compare with current letter
   mov eax, curr_index
   mov al, [esi + eax]
 
   cmp bl, al
-  jne incorrect_letter
+  jne continue_loop   ; if incorrect letter, continue the loop
 
   ; Correct letter
   inc curr_index
@@ -69,19 +75,30 @@ game_loop:
   ; Going to next word once one is completed
   inc curr_word
   mov curr_index, 0
+  mov row_pos, 0
   call Clrscr
-  call WriteString
   call Crlf
   
   ; Check if at the end of word list
   cmp curr_word, WORD_COUNT
   je game_over
-   
-  incorrect_letter:
-    jmp game_loop
 
   continue_loop:
-    call Clrscr
+    mov eax, 10
+    call Delay
+
+    ; Have loop run every 10ms and increase fall_timer by 10 each time, when fall_timer reaches 100, move the word down one row
+    ; and reset fall_timer, and increment row_pos. If row_pos reaches 21, game over
+    add fall_timer, 10
+    cmp fall_timer, 100
+    jl game_loop
+
+    mov fall_timer, 0
+    inc row_pos
+
+    cmp row_pos, 21
+    je game_over
+
     jmp game_loop
 
   game_over:
@@ -108,7 +125,7 @@ DrawDeathLine PROC
     call SetTextColor
     
     ;WriteString <write 80 space characters> 
-    mov edx, OFFSET spaces80 
+    mov edx, OFFSET blank_line 
     call WriteString 
 
     mov eax, lightGray + (black * 16)   ; restore normal colors
