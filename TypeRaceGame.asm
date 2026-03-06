@@ -21,116 +21,136 @@ curr_index DWORD 0                  ; Index for the current letter
 
 blank_line BYTE 120 DUP(" "),0 
 
-row_pos DWORD 0     ; Row position of the current falling word, starts at 0 and increases as the word falls
-fall_timer DWORD 0  ; Timer to control the speed of the falling words
+row_pos DWORD 0         ; Row position of the current falling word, starts at 0 and increases as the word falls
+fall_timer DWORD 0      ; Timer to control the speed of the falling words
+DEATH_ROW DWORD 25      ; Row number of the death line, if a word reaches this row, the game is over
 
 gameOverMsg BYTE "GAME OVER",0   ; Message to display when the game is over
-;exitMsg BYTE "Press any key to exit...",0
+winGameMsg BYTE "YOU WIN!",0     ; Message to display when the player wins
 
 .code
 main PROC
-  call Clrscr
 
 game_loop:
   call Clrscr
-  call DrawDeathLine   ; Draw the death line at the bottom of the screen
-
-  ; Draw word on the screen
-  mov dh, BYTE PTR row_pos       ; row
-  mov dl, 0        ; col
-  call Gotoxy
-
-  ; Calculate the offset for the current word
-  mov eax, curr_word
-  mov esi, test_words[eax*4]
-  
-  ; Print remaining letters
-  mov edx, esi
-  mov eax, curr_index
-  add edx, eax
-  call WriteString
+  call DrawDeathLine
+  call DrawWord
+  call ProcessInput
+  call UpdateFalling
+  jmp game_loop
+main ENDP
 
 
-  ; Read a key
-  call ReadKey
-  jz continue_loop   ; if no key is pressed, continue the loop
-  
-  mov bl, al        ; store pressed key
+DrawWord PROC
+            ; Draw the current word at its current position
+    mov dh, BYTE PTR row_pos        ; row
+    mov dl, 0                       ; col
+    call Gotoxy
     
-  ; Compare with current letter
-  mov eax, curr_index
-  mov al, [esi + eax]
+            ; Calculate the offset for the current word
+    mov eax, curr_word
+    mov esi, test_words[eax*4]
+    
+            ; Print remaining letters
+    mov edx, esi
+    mov eax, curr_index
+    add edx, eax
+    call WriteString
+    ret
+DrawWord ENDP
 
-  cmp bl, al
-  jne continue_loop   ; if incorrect letter, continue the loop
 
-  ; Correct letter
-  inc curr_index
-  mov eax, curr_index
-  mov al, [esi + eax]
+ProcessInput PROC
+            ; Read a key and compare it to the current letter of the falling word
+    call ReadKey                    
+    jz no_input                     ; if no key is pressed, return
+    mov bl, al                      ; store pressed key
+    
+            ; Compare with current letter
+    mov eax, curr_index             
+    mov al, [esi + eax]
+    cmp bl, al
+    jne no_input                    ; if incorrect letter, return
+
+            ; Correct letter
+    inc curr_index 
+    mov eax, curr_index
+    mov al, [esi + eax]
   
-  cmp al, 0   ; check for null character
-  jne continue_loop
+    cmp al, 0                       ; check for null character
+    jne no_input
 
-  ; Going to next word once one is completed
-  inc curr_word
-  mov curr_index, 0
-  mov row_pos, 0
-  call Clrscr
-  call Crlf
+            ; Going to next word once one is completed
+    inc curr_word
+    mov curr_index, 0
+    mov row_pos, 0
+
+            ; Check if at the end of word list
+    cmp curr_word, WORD_COUNT
+    je win_game
   
-  ; Check if at the end of word list
-  cmp curr_word, WORD_COUNT
-  je game_over
+  no_input:
+    ret
 
-  continue_loop:
+  win_game:
+    call WinGameScreen
+    ret
+ProcessInput ENDP
+
+
+UpdateFalling PROC
     mov eax, 10
     call Delay
 
-    ; Have loop run every 10ms and increase fall_timer by 10 each time, when fall_timer reaches 100, move the word down one row
-    ; and reset fall_timer, and increment row_pos. If row_pos reaches 21, game over
+            ;Update the position of the falling word based on the timer
     add fall_timer, 10
     cmp fall_timer, 100
-    jl game_loop
-
-    mov fall_timer, 0
+    jl no_fall              ; if timer hasn't reached threshold, return
+    mov fall_timer, 0       ; reset timer
     inc row_pos
-
-    cmp row_pos, 21
+    mov eax, DEATH_ROW
+    cmp row_pos, eax
     je game_over
-
-    jmp game_loop
-
+  
+  no_fall:
+    ret
   game_over:
+    call GameOverScreen
+    ret
+UpdateFalling ENDP
+
+GameOverScreen PROC
     call Clrscr
     mov edx, OFFSET gameOverMsg
     call WriteString
-    call Crlf
-
-    ;mov edx, OFFSET exitMsg
-    ;call WriteString
     mov eax, 5000
     call Delay
     invoke ExitProcess,0
+GameOverScreen ENDP
 
-main ENDP
 
-; If a word makes it to the death line that is 20 lines below, the game is over
-DrawDeathLine PROC
-    mov dh, 21      ; row 21
-    mov dl, 0       ; column 0
+WinGameScreen PROC
+    call Clrscr
+    mov edx, OFFSET winGameMsg
+    call WriteString
+    mov eax, 5000
+    call Delay
+    invoke ExitProcess,0
+WinGameScreen ENDP
+
+
+
+DrawDeathLine PROC      ; If a word makes it to the death line, the game is over
+    mov eax, DEATH_ROW
+    mov dh, al      ; row
+    mov dl, 0       ; col
     call Gotoxy
-
     mov eax, white + (white * 16)   ; white text on white background
     call SetTextColor
-    
-    ;WriteString <write 80 space characters> 
     mov edx, OFFSET blank_line 
     call WriteString 
-
     mov eax, lightGray + (black * 16)   ; restore normal colors
     call SetTextColor
-
     ret
 DrawDeathLine ENDP
 
