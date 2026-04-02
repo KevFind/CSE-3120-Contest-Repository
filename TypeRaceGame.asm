@@ -1,4 +1,5 @@
 INCLUDE Irvine32.inc
+INCLUDE Screens.inc
 
 .data
 filename BYTE "words.txt",0
@@ -14,9 +15,6 @@ row_pos DWORD 0         ; Row position of the current falling word, starts at 0 
 fall_timer DWORD 0      ; Timer to control the speed of the falling words
 DEATH_ROW DWORD 25      ; Row number of the death line, if a word reaches this row, the game is over
 
-gameOverMsg BYTE "GAME OVER",0   ; Message to display when the game is over
-winGameMsg BYTE "YOU WIN!",0     ; Message to display when the player wins
-
 MAX_WORDS DWORD 4   ; Maximum number of words to load from the file, can be adjusted as needed
 
 currentWordPtr DWORD ?  ; Pointer to the current word being processed, used for input comparison and display
@@ -24,6 +22,7 @@ currentWordPtr DWORD ?  ; Pointer to the current word being processed, used for 
 .code
 main PROC
 call Clrscr
+call TitleScreen
 call LoadWords
 call ParseWords
 call Randomize
@@ -120,9 +119,7 @@ DrawWord PROC
 DrawWord ENDP
 
 EraseWord PROC
-    mov dh, BYTE PTR row_pos
-    mov dl, 0
-    call Gotoxy
+    GotoxyM BYTE PTR row_pos, 0
 
     mov edx, OFFSET blank_line
     call WriteString
@@ -199,26 +196,6 @@ UpdateFalling PROC
     call GameOverScreen
     ret
 UpdateFalling ENDP
-
-GameOverScreen PROC
-    call Clrscr
-    mov edx, OFFSET gameOverMsg
-    call WriteString
-    mov eax, 2000
-    call Delay
-    invoke ExitProcess,0
-GameOverScreen ENDP
-
-
-WinGameScreen PROC
-    call Clrscr
-    mov edx, OFFSET winGameMsg
-    call WriteString
-    mov eax, 2000
-    call Delay
-    invoke ExitProcess,0
-WinGameScreen ENDP
-
 
 
 DrawDeathLine PROC      ; If a word makes it to the death line, the game is over
